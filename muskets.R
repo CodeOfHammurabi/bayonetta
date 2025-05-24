@@ -2,27 +2,34 @@
 #proudly written without chatgpt by krishna girish :)
 
 library(stringr)
-extra <- function(str){ #small wrapper to split by 4's
-  a<-gsub("(.{4})", "\\1 ", str)
+
+#module 0: read the questions tsv for the week
+#this should include a quad_id column in the leftmost, answers, and a quad name category at the very least
+new_qns <-  read.delim(file.choose(),sep="\t") 
+#remove spares
+new_qns <- new_qns[-which(new_qns$roundNo=="Spare"),]
+
+#module 1: load in URLs and get "question fates" for each question
+urls_collection <- read.csv(file.choose())
+#dataframe of all game scores
+#urls_collection <- 'https://wikiquiz.org/Quiz_Scorer_App.html#/!/IQM/CQL/Zoom/Season%201/GW3/Adheesh%20Ghosh/Adheesh%20Ghosh/Adheesh%20Ghosh/4/Anshumani%20Ruddra/Aaran%20Mohan/Raunaq%20Vohra/Mikey%20Brown/////////////////////////////////////5/3/2023-08-06%2019:00//109/CCPCCPPPPPPPWCCCCPPPCPPCCPCPCCCCCCCCCPCCCPPPPPPPPCCCPPCPCCPPPPPPCPCCPPCCCCPCCPCPPPPCCPCCPPWPCPPWCCCCPPPWCPPCC'
+
+#wrapper function to split strings
+extra <- function(str){ 
+  a <- gsub("(.{4})", "\\1 ", str)
   return(a)}
 
-qns <- read.delim(file.choose(),sep="\t") #load in raw tsv of questions
-qns <- qns[,c(1,2,5)]
-qns <- head(qns, -3) #remove spares
+urls_collection <- as.data.frame(urls_collection)
 
-raw_urls <- read.csv(file.choose(), header=FALSE) #load in csv of wikiquiz URLs
-
-raw_urlsa <- 'https://wikiquiz.org/Quiz_Scorer_App.html#/!/IQM/CQL/Zoom/Season%201/GW3/Adheesh%20Ghosh/Adheesh%20Ghosh/Adheesh%20Ghosh/4/Anshumani%20Ruddra/Aaran%20Mohan/Raunaq%20Vohra/Mikey%20Brown/////////////////////////////////////5/3/2023-08-06%2019:00//109/CCPCCPPPPPPPWCCCCPPPCPPCCPCPCCCCCCCCCPCCCPPPPPPPPCCCPPCPCCPPPPPPCPCCPPCCCCPCCPCPPPPCCPCCPPWPCPPWCCCCPPPWCPPCC'
-raw_urls <- data.frame(raw_urlsa)
-
-for(i in 1:nrow(raw_urls)){
+for(i in 1:nrow(urls_collection)){
   seq <- sub(".*/", "", raw_urls[i,])
   seq <- unlist(strsplit(seq, "(?<=[C])", perl=TRUE))
+  
   qvec <- unlist(str_split((unname(sapply(seq, FUN=extra))), " "))
   qvec <- qvec[qvec!=""]
   qvec[grepl("PPPP", qvec)] <- "X"
-  qvec[which(str_length(qvec)==4 & !grepl("C", qvec))] <- "X"
-  qns <- as.data.frame(cbind(qns, qvec))}
+  #qvec[which(str_length(qvec)==4 & !grepl("C", qvec))] <- "X"
+  new_qns <- as.data.frame(cbind(new_qns, qvec))}
 
 #now we want to use this to track BA sequences over time
 #this will allow us to find out who got each answer right
@@ -88,8 +95,7 @@ for(i in 1:nrow(pts_scored)){
 converted <- as.data.frame(cbind(qns, who_conv))
 
 #now, muskets
-new_qns <-  read.delim(file.choose(),sep="\t") 
-new_qns <- new_qns[1:60,]
+
 
 seqs <- new_qns[,1] #these are quad orders
 names(seqs) <- rep(1:15, each = 4)
