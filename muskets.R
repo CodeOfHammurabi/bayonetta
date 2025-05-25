@@ -173,7 +173,10 @@ muskets_df <- as.data.frame(cbind(muskets_df[,-1], quadnames))
 #3. jack of all quads
 #4. conversion rates per question
 #5. JUDE
-#6. 
+#6. owns per seat, X's per seat
+#7. top scorers per seat
+#8. quad difficulty & quad equity - which quads were most scattered across all 4 players
+#9. topic-wise conversion stats 
 
 
 
