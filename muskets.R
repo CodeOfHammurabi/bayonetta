@@ -167,7 +167,13 @@ colnames(muskets_df) <- c('quad', paste0('q', 1:4))
 
 muskets_df <- as.data.frame(cbind(muskets_df[,-1], quadnames))
 
-
+#things to compute-
+#1. muskets
+#2. d'artagnans in topics
+#3. jack of all quads
+#4. conversion rates per question
+#5. JUDE
+#6. 
 
 
 
