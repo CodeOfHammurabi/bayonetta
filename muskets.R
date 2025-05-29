@@ -31,7 +31,7 @@ name_extractor <- function(url){
   idx_4 <- which(parts == "4")[1]
   names_vector <- parts[(idx_4 + 1):(idx_4 + 4)]
   names_vector <- URLdecode(names_vector)
-  print(names_vector)
+  return(names_vector)
 }
 
 urls_collection <- as.data.frame(urls_collection)
@@ -143,40 +143,118 @@ for(j in 1:nrow(conversions)){
   conversions[j, ] <- c(j, who_conv)
 }
 
+#conversion stats on each question
+id_direct <- paste0("p", whose_direct)
+
+conversion_stats <- as.data.frame(matrix(nrow=60, ncol=3))
+for(i in 2:ncol(conversions)){
+  current_player_seq <- conversions[,i]
+  overall_conversion <- length(which(current_player_seq!="X"))/length(current_player_seq)
+  whose_direct <- id_direct[(i-1)]
+  direct_conversion <- length(which(current_player_seq==whose_direct))/length(current_player_seq)
+  conversion_stats[(i-1),] <- c((i-1), direct_conversion, overall_conversion)
+}
+
+colnames(conversion_stats) <- c("q", "direct_conv", "overall_conv")
+
 #now, we compute muskets and d'artagnans
-
 quad_orders <- new_qns[,1] #quad orders!
-
-#name the vector so we can match
-names(quad_orders) <- rep(1:15, each = 4)
+names(quad_orders) <- rep(1:15, each = 4) #name vector to match
 group_map <- rep(1:15, each = 4) #what to fill in
-
-group_assignment <- rep(0, nrow(conversions[i,]))
-group_assignment[quad_orders] <- group_map
-muscat <- group_assignment
 quadnames <- unique(new_qns$Quad)
 
-grouped <- split(unlist(conversions[1,-1]), as.factor(muscat)) #per-quad qns & conversions
+all_muskets <- as.data.frame(matrix(nrow=0, ncol=3))
+colnames(all_muskets) <- c("quad", "player", "count")
+for(i in 1:nrow(conversions)){
+  group_assignment <- rep(0, (length(conversions[i,])-1))
+  group_assignment[quad_orders] <- group_map
+  muscat <- group_assignment
+  grouped <- split(unlist(conversions[i,-1]), as.factor(muscat))
+  muskets_df <- data.frame(group = as.integer(names(grouped)), do.call(rbind, grouped),
+    row.names = NULL)
+  at_least_dart <- apply(muskets_df[,-1], 1, function(row) {tab <- table(row)
+    tab[tab >= 3]})
+  clean <- which(sapply(at_least_dart, length) > 0)
+  musket_or_dart <- lapply(clean, function(j) {
+    list(quad = j, player = names(at_least_dart[[j]]), count = as.integer(at_least_dart[[j]]))
+  })
+  bigs_df <- do.call("rbind", musket_or_dart)
+  if(!is.null(bigs_df)){
+    bigs_df <- as.data.frame(cbind(game_id = rep(i, nrow(bigs_df)), bigs_df))
+  }
+  all_muskets <- rbind(all_muskets, bigs_df)
+}
 
-muskets_df <- data.frame(
-  group = as.integer(names(grouped)),
-  do.call(rbind, grouped),
-  row.names = NULL
-)
-colnames(muskets_df) <- c('quad', paste0('q', 1:4))
+all_muskets <- subset(all_muskets, all_muskets$player!="X")
 
-muskets_df <- as.data.frame(cbind(muskets_df[,-1], quadnames))
+#replace these with names of players who got them, and quad names
+for(i in 1:nrow(all_muskets)){
+  current_game <- unlist(all_muskets[i,1])
+  player_who_got <- as.numeric(as.numeric(gsub("\\D", "", all_muskets[i,3])))
+  all_muskets[i,3] <- name_extractor(urls_collection[current_game,])[player_who_got]
+  #now, which quad
+  all_muskets[i,2] <- quadnames[unlist(all_muskets[i,2])]
+}
 
+#owns per seat and X's per seat
+owns_seat <- as.data.frame(matrix(0, nrow=nrow(conversions), ncol=5))
+xs_seat <- as.data.frame(matrix(0, nrow=nrow(conversions), ncol=5))
+for(i in 1:nrow(conversions)){
+  sequence_gets <- unlist(conversions[i,-1])
+  match_mat <- as.data.frame(cbind(id_direct, sequence_gets))
+  colnames(match_mat) <- c("who_direct", "who_got")
+  seat1_owns <- length(which(match_mat$who_direct=="p1" & match_mat$who_got=="p1"))
+  seat2_owns <- length(which(match_mat$who_direct=="p2" & match_mat$who_got=="p2"))
+  seat3_owns <- length(which(match_mat$who_direct=="p3" & match_mat$who_got=="p3"))
+  seat4_owns <- length(which(match_mat$who_direct=="p4" & match_mat$who_got=="p4"))
+  seat1_x <- length(which(match_mat$who_direct=="p1" & match_mat$who_got=="X"))
+  seat2_x <- length(which(match_mat$who_direct=="p2" & match_mat$who_got=="X"))
+  seat3_x <- length(which(match_mat$who_direct=="p3" & match_mat$who_got=="X"))
+  seat4_x <- length(which(match_mat$who_direct=="p4" & match_mat$who_got=="X"))
+  owns_seat[i,] <- c(i, seat1_owns, seat2_owns, seat3_owns, seat4_owns)
+  xs_seat[i,] <- c(i, seat1_x, seat2_x, seat3_x, seat4_x)
+}
+
+avg_owns <- colMeans(owns_seat[,-1])
+names(avg_owns) <- c("seat1_owns", "seat2_owns", "seat3_owns", "seat4_owns")
+avg_xs <- colMeans(xs_seat[,-1])
+names(avg_xs) <- c('seat1_xs', 'seat2_xs', 'seat3_xs', 'seat4_xs')
+
+#top owns per seat - who did best?
+most_owns <- apply(owns_seat[,-1], 2, max)
+whos_most_owns <- apply(owns_seat[,-1], 2, which.max)
+
+names_tops <- c()
+for(i in 1:4){
+  game_number <- whos_most_owns[i]
+  names_tops <- c(names_tops, name_extractor(urls_collection[game_number,])[i])
+}
+
+week_toppers <- as.data.frame(cbind(names_tops, most_owns))
+
+
+
+##############################################
 #things to compute-
-#1. muskets
-#2. d'artagnans in topics
+#1. muskets (DONE)
+#2. d'artagnans in topics (DONE)
 #3. jack of all quads
-#4. conversion rates per question
-#5. JUDE
-#6. owns per seat, X's per seat
-#7. top scorers per seat
+#4. conversion rates per question (DONE)
+#5. JUDE (joint unanswered deficit extent) - based on conversion stats
+#6. owns per seat, X's per seat (DONE)
+#7. top scorers per seat (DONE)
 #8. quad difficulty & quad equity - which quads were most scattered across all 4 players
 #9. topic-wise conversion stats 
+#10. score progression per game? see ggplot of B
+#11. any no-hitters?
+#other stats?
+
+#other ideas
+
+#option to reconstruct muskets from a single URL
+#and native reading of format - # of players, # of rounds ,etc
+
+
 
 
 
