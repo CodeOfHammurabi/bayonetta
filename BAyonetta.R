@@ -319,10 +319,23 @@ for(i in 1:length(conversion_list)){
 colnames(jude_all) <- c("name", "jude")
 
 ##############################################
-
+#things to compute-
+#1. muskets (DONE)
+#2. d'artagnans in topics (DONE)
+#3. jack of all quads (DONE)
+#4. conversion rates per question (DONE)
+#5. JUDE (joint unanswered deficit extent) - based on conversion stats (DONE)
+#6. owns per seat, X's per seat (DONE)
+#7. top scorers per seat (DONE)
+#8. quad difficulty (DONE) & quad equity - which quads were most scattered across all 4 players (DONE)
+#9. topic-wise conversion stats (meh)
+#10. score progression per game? see ggplot of B (meh)
+#11. any no-hitters? (DONE)
+#12. congrats-alls (DONE)
+#13. hail-maries (DONE)
 #other stats?
 
-#future feature - 
+#future features-
 #option to reconstruct muskets from a single URL
 #and native reading of format - # of players, # of rounds ,etc
 
