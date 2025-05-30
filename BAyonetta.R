@@ -307,6 +307,7 @@ quad_owns_conversions <- as.data.frame(cbind(quadnames, colMeans(quads_owns_conv
 #JUDE: obscurity score
 
 jude_all <- as.data.frame(matrix(nrow=0, ncol=2))
+auden_all <- as.data.frame(matrix(nrow=0, ncol=2))
 for(i in 1:length(conversion_list)){
   whomst <- game_scores[[i]]
   for(j in 1:4){
@@ -314,9 +315,16 @@ for(i in 1:length(conversion_list)){
     who_dis <- name_extractor(urls_collection[i,])[j]
     jude <- sum(1-conversion_stats[converted_which,3])
     jude_all <- rbind(jude_all, c(who_dis, jude))
+    auden <- jude/length(converted_which) 
+    auden_all <- rbind(auden_all, c(who_dis, auden))
   }
 }
 colnames(jude_all) <- c("name", "jude")
+colnames(auden_all) <- c('name', 'auden')
+
+#average unanswered deficit extent, normalized (AUDEN)
+#more questions answered, more score
+
 
 ##############################################
 #things to compute-
