@@ -157,6 +157,8 @@ for(i in 2:ncol(conversions)){
 
 colnames(conversion_stats) <- c("q", "direct_conv", "overall_conv")
 
+conversion_stats$answer <- new_qns[order(new_qns$X),]$answerText
+  
 #now, we compute muskets and d'artagnans
 quad_orders <- new_qns[,1] #quad orders!
 names(quad_orders) <- rep(1:15, each = 4) #name vector to match
@@ -164,6 +166,7 @@ group_map <- rep(1:15, each = 4) #what to fill in
 quadnames <- unique(new_qns$Quad)
 
 all_muskets <- as.data.frame(matrix(nrow=0, ncol=3))
+conversion_list <- list()
 colnames(all_muskets) <- c("quad", "player", "count")
 for(i in 1:nrow(conversions)){
   group_assignment <- rep(0, (length(conversions[i,])-1))
@@ -174,6 +177,7 @@ for(i in 1:nrow(conversions)){
     row.names = NULL)
   at_least_dart <- apply(muskets_df[,-1], 1, function(row) {tab <- table(row)
     tab[tab >= 3]})
+  conversion_list[[i]] <- muskets_df
   clean <- which(sapply(at_least_dart, length) > 0)
   musket_or_dart <- lapply(clean, function(j) {
     list(quad = j, player = names(at_least_dart[[j]]), count = as.integer(at_least_dart[[j]]))
@@ -232,25 +236,93 @@ for(i in 1:4){
 
 week_toppers <- as.data.frame(cbind(names_tops, most_owns))
 
+#congrats-all
+congrats_all <- which(conversion_stats$overall_conv==0)
+congrats_ans <- new_qns$answerText[which(new_qns$X %in% congrats_all)]
+#congrats-none
+congrats_none <- which(conversion_stats$overall_conv==1)
+congrats_none_ans <- new_qns$answerText[which(new_qns$X %in% congrats_none)]
 
+#nohitters
+nohits <- which((owns_seat[,-1]+xs_seat[,-1])==15, arr.ind=T)
+nohitters <- c()
+for(i in 1:nrow(nohits)){
+  nohitters <- c(nohitters, name_extractor(urls_collection[unlist(nohits[i,1]),])[nohits[i,2]])
+}
+
+#jack of all quads - reconstruct muskets_df for each game
+jacks <- c()
+for(i in 1:length(conversion_list)){
+  current <- conversion_list[[i]]
+  for(j in 1:4){
+    if(all(apply(current, 1, function(x) any(x %in% paste0("p", j))))==T){
+      jacks <- c(jacks, name_extractor(urls_collection[i,])[j])
+    }}}
+
+#hail-maries: when did we have 3 passes or wrong and then one person swooping in to save an X
+
+hailmaries_all <- as.data.frame(matrix(nrow=0, ncol=3))
+colnames(hailmaries_all) <- c("game", "answer", "person")
+for(i in 1:nrow(urls_collection)){
+  fates <- question_fates[[i]]
+  saved <- which(nchar(fates)==4 & substr(fates, 4, 4)=="C") 
+  who_saved <- apply(game_scores[[i]][saved,], 1, function(x) which(x==1))
+  hailmaries <- as.data.frame(cbind(rep(i, times=length(saved)), new_qns[new_qns$X %in% saved,]$answerText, name_extractor(urls_collection[i,])[who_saved]))
+  colnames(hailmaries) <- colnames(hailmaries_all)
+  hailmaries_all <- rbind(hailmaries_all, hailmaries)
+}
+
+table(hailmaries_all$person)
+
+#quad difficulty
+
+quads_conv <- as.data.frame(matrix(nrow=nrow(urls_collection), ncol=15))
+for(i in 1:length(conversion_list)){
+  current <- conversion_list[[i]][,-1]
+  quads_conv[i,] <- apply(current, 1, function(x) length(which(x!="X")))
+}
+
+quad_conversions <- as.data.frame(cbind(quadnames, colMeans(quads_conv)))
+
+#how many answered on direct?
+#annoying to compute given what we have, actually
+#but let's see
+
+quads_owns_conv <- as.data.frame(matrix(nrow=nrow(urls_collection), ncol=15))
+for(i in 1:nrow(conversions)){
+  musket_quad <- as.data.frame(cbind(muscat, unlist(conversions[i,-1]), id_direct))
+  musket_quad <- musket_quad[order(muscat),]
+  musket_quad$muscat <- as.numeric(musket_quad$muscat)
+  musket_out <- musket_quad %>%
+    group_by(muscat) %>%
+    summarise(count_equal = sum(V2 == id_direct, na.rm = TRUE))
+  quads_owns_conv[i,] <- musket_out$count_equal
+}
+
+quad_owns_conversions <- as.data.frame(cbind(quadnames, colMeans(quads_owns_conv)))
+
+#quad equity - how many distinct players answered anything in a quad
+#will do later- hard to interpret
+
+#JUDE: obscurity score
+
+jude_all <- as.data.frame(matrix(nrow=0, ncol=2))
+for(i in 1:length(conversion_list)){
+  whomst <- game_scores[[i]]
+  for(j in 1:4){
+    converted_which <- which(whomst[,j]==1)
+    who_dis <- name_extractor(urls_collection[i,])[j]
+    jude <- sum(1-conversion_stats[converted_which,3])
+    jude_all <- rbind(jude_all, c(who_dis, jude))
+  }
+}
+colnames(jude_all) <- c("name", "jude")
 
 ##############################################
-#things to compute-
-#1. muskets (DONE)
-#2. d'artagnans in topics (DONE)
-#3. jack of all quads
-#4. conversion rates per question (DONE)
-#5. JUDE (joint unanswered deficit extent) - based on conversion stats
-#6. owns per seat, X's per seat (DONE)
-#7. top scorers per seat (DONE)
-#8. quad difficulty & quad equity - which quads were most scattered across all 4 players
-#9. topic-wise conversion stats 
-#10. score progression per game? see ggplot of B
-#11. any no-hitters?
+
 #other stats?
 
-#other ideas
-
+#future feature - 
 #option to reconstruct muskets from a single URL
 #and native reading of format - # of players, # of rounds ,etc
 
