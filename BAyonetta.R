@@ -7,7 +7,7 @@ library(tidyr)
 
 #module 0: read the questions tsv for the week
 #this should include a quad_id column in the leftmost, answers, and a quad name category at the very least
-new_qns <-  read.delim('/Users/krishnasg/Downloads/cql_s1_gw7.tsv',sep="\t") 
+new_qns <-  read.delim('/Users/krishnasg/Documents/zql_cultish_gw1.tsv',sep="\t") 
 #remove spares
 new_qns <- new_qns[-which(new_qns$roundNo=="Spare"),]
 
@@ -16,9 +16,12 @@ if(nrow(new_qns)>=60){
 }
 
 #module 1: load in URLs and get "question fates" for each question
-urls_collection <- read.csv('/Users/krishnasg/Downloads/urls_sample_cql.csv', header=F)
-#dataframe of all game scores
-#urls_collection <- 'https://wikiquiz.org/Quiz_Scorer_App.html#/!/IQM/CQL/Zoom/Season%201/GW3/Adheesh%20Ghosh/Adheesh%20Ghosh/Adheesh%20Ghosh/4/Anshumani%20Ruddra/Aaran%20Mohan/Raunaq%20Vohra/Mikey%20Brown/////////////////////////////////////5/3/2023-08-06%2019:00//109/CCPCCPPPPPPPWCCCCPPPCPPCCPCPCCCCCCCCCPCCCPPPPPPPPCCCPPCPCCPPPPPPCPCCPPCCCCPCCPCPPPPCCPCCPPWPCPPWCCCCPPPWCPPCC'
+urls_collection <- read.csv('/Users/krishnasg/Downloads/zql_cultish_gw1_url.csv', header=F)
+#just in case some game did not happen
+if(any(urls_collection$V2=="")){
+  urls_collection <- urls_collection[-which(urls_collection$V2==""),]
+}
+urls_collection <- urls_collection[,-1]
 
 #wrapper function to split strings
 extra <- function(str){ 
@@ -45,7 +48,7 @@ for(i in 1:nrow(urls_collection)){
   #now need to sanitize input for weird readers who mark all guesses even on direct as wrong
   qvec <- gsub("^W", "P", qvec)
   qvec[grepl("PPPP", qvec)] <- "X" #generate X's
-
+  
   #qvec[which(str_length(qvec)==4 & !grepl("C", qvec))] <- "X" don't do this because it ruins BA counts
   question_fates[[i]] <- qvec}
 
@@ -76,56 +79,56 @@ finalscores <- as.data.frame(matrix(0, nrow=nrow(urls_collection), ncol=5))
 finalbas <- as.data.frame(matrix(0, nrow=nrow(urls_collection), ncol=5))
 
 for(j in 1:length(game_scores)){
-   current <- question_fates[[j]]
-   pts_scored <- game_scores[[j]]
-   ba_cts <- ba_recs[[j]]
-   
-   for(i in 1:length(current)){
-     question_fate <- current[i]
-     if(question_fate=="C"){
-       pts_scored[i,whose_direct[i]] <- pts_scored[i,whose_direct[i]]+1 #1 point to direct, no BAs
-       ba_cts[(i+1),] <- ba_cts[i,] #BAs remain static for the next question
-     }
-     if(question_fate=="X"){
-       ba_cts[(i+1),] <- ba_cts[i,] #remains the same for the next question
-     }
-     if(nchar(question_fate)>1){ #this indicates some passing shenanigans have happened
-       passorder <- get_pass_order(whose_direct[i], unlist(ba_cts[i,])) #read current BA counts 
-       #split the sequence
-       local_seq <- unlist(strsplit(question_fate, ''))
-       if(any(local_seq=="W")){ #if there's any wrong answers
-         wrongs <- which(local_seq=="W")
-         ba_cts[i,passorder[wrongs]] <- ba_cts[i,passorder[wrongs]]+1
-         ba_cts[(i+1),] <- ba_cts[i,]
-       }
-       if(any(local_seq=="C")){ #if someone got it right
-         who_right <- passorder[which(local_seq=="C")] #there can be only one
-         ba_cts[i, who_right] <- ba_cts[i, who_right]+1
-         pts_scored[i, who_right] <- pts_scored[i, who_right]+1
-         ba_cts[(i+1),] <- ba_cts[i,]
-       }
-     }
-   }
-   
-   ba_cts <- ba_cts[-nrow(ba_cts),]
-   game_scores[[j]] <- pts_scored
-   ba_recs[[j]] <- ba_cts
-   finalscores[j, ] <- c(j, colSums(pts_scored))
-   finalbas[j,] <- c(j, unlist(ba_cts[nrow(ba_cts),]))
+  current <- question_fates[[j]]
+  pts_scored <- game_scores[[j]]
+  ba_cts <- ba_recs[[j]]
+  
+  for(i in 1:length(current)){
+    question_fate <- current[i]
+    if(question_fate=="C"){
+      pts_scored[i,whose_direct[i]] <- pts_scored[i,whose_direct[i]]+1 #1 point to direct, no BAs
+      ba_cts[(i+1),] <- ba_cts[i,] #BAs remain static for the next question
+    }
+    if(question_fate=="X"){
+      ba_cts[(i+1),] <- ba_cts[i,] #remains the same for the next question
+    }
+    if(nchar(question_fate)>1){ #this indicates some passing shenanigans have happened
+      passorder <- get_pass_order(whose_direct[i], unlist(ba_cts[i,])) #read current BA counts 
+      #split the sequence
+      local_seq <- unlist(strsplit(question_fate, ''))
+      if(any(local_seq=="W")){ #if there's any wrong answers
+        wrongs <- which(local_seq=="W")
+        ba_cts[i,passorder[wrongs]] <- ba_cts[i,passorder[wrongs]]+1
+        ba_cts[(i+1),] <- ba_cts[i,]
+      }
+      if(any(local_seq=="C")){ #if someone got it right
+        who_right <- passorder[which(local_seq=="C")] #there can be only one
+        ba_cts[i, who_right] <- ba_cts[i, who_right]+1
+        pts_scored[i, who_right] <- pts_scored[i, who_right]+1
+        ba_cts[(i+1),] <- ba_cts[i,]
+      }
+    }
+  }
+  
+  ba_cts <- ba_cts[-nrow(ba_cts),]
+  game_scores[[j]] <- pts_scored
+  ba_recs[[j]] <- ba_cts
+  finalscores[j, ] <- c(j, colSums(pts_scored))
+  finalbas[j,] <- c(j, unlist(ba_cts[nrow(ba_cts),]))
 }
 
 #great, this section is done - basically tells us who got what, and progression of BAs over time
 
-B <- as.data.frame(cbind(1:nrow(game_scores[[1]]), apply(game_scores[[1]], 2, cumsum)))
-colnames(B) <- c("qn", name_extractor(urls_collection[1,]))
-B_long <- B %>%
-  pivot_longer(cols = c(`Sarah Trevarthen`, `Samanth Subramanian`, `Benny Meyers`, `Achyuth Sanjay`),
-               names_to = "player", values_to = "value")
-ggplot(B_long, aes(x = qn, y = value, color = player)) +
-  geom_line(size = 1) +
-  labs(x = "Question Number", y = "Player") +
-  theme_classic() +
-  theme(legend.title = element_blank())
+# B <- as.data.frame(cbind(1:nrow(game_scores[[1]]), apply(game_scores[[1]], 2, cumsum)))
+# colnames(B) <- c("qn", name_extractor(urls_collection[1,]))
+# B_long <- B %>%
+#   pivot_longer(cols = c(`Sarah Trevarthen`, `Samanth Subramanian`, `Benny Meyers`, `Achyuth Sanjay`),
+#                names_to = "player", values_to = "value")
+# ggplot(B_long, aes(x = qn, y = value, color = player)) +
+#   geom_line(size = 1) +
+#   labs(x = "Question Number", y = "Player") +
+#   theme_classic() +
+#   theme(legend.title = element_blank())
 
 #who got it right?
 
@@ -157,8 +160,8 @@ for(i in 2:ncol(conversions)){
 
 colnames(conversion_stats) <- c("q", "direct_conv", "overall_conv")
 
-conversion_stats$answer <- new_qns[order(new_qns$X),]$answerText
-  
+conversion_stats$answer <- new_qns[order(new_qns$Q.),]$answerText
+
 #now, we compute muskets and d'artagnans
 quad_orders <- new_qns[,1] #quad orders!
 names(quad_orders) <- rep(1:15, each = 4) #name vector to match
@@ -174,9 +177,9 @@ for(i in 1:nrow(conversions)){
   muscat <- group_assignment
   grouped <- split(unlist(conversions[i,-1]), as.factor(muscat))
   muskets_df <- data.frame(group = as.integer(names(grouped)), do.call(rbind, grouped),
-    row.names = NULL)
+                           row.names = NULL)
   at_least_dart <- apply(muskets_df[,-1], 1, function(row) {tab <- table(row)
-    tab[tab >= 3]})
+  tab[tab >= 3]})
   conversion_list[[i]] <- muskets_df
   clean <- which(sapply(at_least_dart, length) > 0)
   musket_or_dart <- lapply(clean, function(j) {
@@ -190,6 +193,9 @@ for(i in 1:nrow(conversions)){
 }
 
 all_muskets <- subset(all_muskets, all_muskets$player!="X")
+all_muskets$count <- as.numeric(all_muskets$count)
+all_muskets$quad <- as.character(all_muskets$quad)
+all_muskets$player <- as.character(all_muskets$player)
 
 #replace these with names of players who got them, and quad names
 for(i in 1:nrow(all_muskets)){
@@ -199,6 +205,39 @@ for(i in 1:nrow(all_muskets)){
   #now, which quad
   all_muskets[i,2] <- quadnames[unlist(all_muskets[i,2])]
 }
+
+musket_4 <- subset(all_muskets, all_muskets$count==4)
+dart_3 <- subset(all_muskets, all_muskets$count==3)
+
+musket_4$id <- as.integer(factor(musket_4$quad))
+dart_3$id <- as.integer(factor(dart_3$quad))
+
+for(i in 1:15){
+  set <- subset(dart_3, dart_3$id==i)
+  quad <- unique(set$quad)
+  whom <- paste(set$player, collapse=", ")
+  print(paste0(quad, ": ", whom))
+}
+
+for(i in 1:15){
+  set <- subset(musket_4, musket_4$id==i)
+  quad <- unique(set$quad)
+  whom <- paste(set$player, collapse=", ")
+  print(paste0(quad, ": ", whom))
+}
+
+#do some work on d'artagnans- it only counts if the other one was stolen
+xed_darts <- c()
+for(i in 1:nrow(dart_3)){
+  game_conversions <- conversions[unlist(dart_3[i,]$game_id),][,-1]
+  which_quad_musketed <- unlist(dart_3[i,]$id)
+  fate_of_quad <- game_conversions[new_qns[which(new_qns$Quad == quadnames[which_quad_musketed]),]$Q.]
+  if("X" %in% fate_of_quad){
+    xed_darts <- c(xed_darts, i)
+  }
+}
+
+dart_3 <- dart_3[-xed_darts,]
 
 #owns per seat and X's per seat
 owns_seat <- as.data.frame(matrix(0, nrow=nrow(conversions), ncol=5))
@@ -225,23 +264,25 @@ avg_xs <- colMeans(xs_seat[,-1])
 names(avg_xs) <- c('seat1_xs', 'seat2_xs', 'seat3_xs', 'seat4_xs')
 
 #top owns per seat - who did best?
+
 most_owns <- apply(owns_seat[,-1], 2, max)
-whos_most_owns <- apply(owns_seat[,-1], 2, which.max)
+whos_most_owns <- sweep(owns_seat[,-1], 2, most_owns, FUN = "==")
+whos_most_owns <- which(whos_most_owns, arr.ind = TRUE)
 
-names_tops <- c()
-for(i in 1:4){
-  game_number <- whos_most_owns[i]
-  names_tops <- c(names_tops, name_extractor(urls_collection[game_number,])[i])
+week_toppers <- as.data.frame(matrix(nrow=nrow(whos_most_owns), ncol=3))
+for(i in 1:nrow(whos_most_owns)){
+  game_number <- unlist(whos_most_owns[i,1])
+  week_toppers[i,] <- c(whos_most_owns[i,2], name_extractor(urls_collection[game_number,])[unlist(whos_most_owns[i,2])], most_owns[whos_most_owns[i,2]])
 }
-
-week_toppers <- as.data.frame(cbind(names_tops, most_owns))
 
 #congrats-all
 congrats_all <- which(conversion_stats$overall_conv==0)
 congrats_ans <- new_qns$answerText[which(new_qns$X %in% congrats_all)]
 #congrats-none
 congrats_none <- which(conversion_stats$overall_conv==1)
-congrats_none_ans <- new_qns$answerText[which(new_qns$X %in% congrats_none)]
+congrats_none_ans <- new_qns$answerText[which(new_qns$Q. %in% congrats_none)]
+
+paste(congrats_none_ans, collapse=", ")
 
 #nohitters
 nohits <- which((owns_seat[,-1]+xs_seat[,-1])==15, arr.ind=T)
@@ -267,13 +308,16 @@ for(i in 1:nrow(urls_collection)){
   fates <- question_fates[[i]]
   saved <- which(nchar(fates)==4 & substr(fates, 4, 4)=="C") 
   who_saved <- apply(game_scores[[i]][saved,], 1, function(x) which(x==1))
-  hailmaries <- as.data.frame(cbind(rep(i, times=length(saved)), new_qns[new_qns$X %in% saved,]$answerText, name_extractor(urls_collection[i,])[who_saved]))
+  hailmaries <- as.data.frame(cbind(rep(i, times=length(saved)), new_qns[new_qns$Q. %in% saved,]$answerText, name_extractor(urls_collection[i,])[who_saved]))
   colnames(hailmaries) <- colnames(hailmaries_all)
   hailmaries_all <- rbind(hailmaries_all, hailmaries)
 }
 
 table(hailmaries_all$person)
 
+hm <- as.data.frame(cbind(names(table(hailmaries_all$person)), table(hailmaries_all$person)))
+hm$V2 <- as.numeric(hm$V2)
+View(hm)
 #quad difficulty
 
 quads_conv <- as.data.frame(matrix(nrow=nrow(urls_collection), ncol=15))
@@ -322,9 +366,15 @@ for(i in 1:length(conversion_list)){
 colnames(jude_all) <- c("name", "jude")
 colnames(auden_all) <- c('name', 'auden')
 
+#who
+jude_all$jude <- as.numeric(jude_all$jude)
+auden_all$auden <- as.numeric(auden_all$auden)
+
+jude_all[which.max(jude_all$jude),]
+auden_all[which.max(auden_all$auden),]
+
 #average unanswered deficit extent, normalized (AUDEN)
 #more questions answered, more score
-
 
 ##############################################
 #things to compute-
@@ -347,9 +397,23 @@ colnames(auden_all) <- c('name', 'auden')
 #option to reconstruct muskets from a single URL
 #and native reading of format - # of players, # of rounds ,etc
 
+#raw_judes
+rawjude <- as.data.frame(cbind(new_qns[order(new_qns$Q.),]$answerText, 1-conversion_stats[,3]))
 
+#who got the hardest questions!
+hardest_12 <- conversion_stats[order(conversion_stats$overall_conv),][1:12,]
+converters <- which(conversions[,paste0("q", hardest_12$q)] != "X", arr.ind=T)
 
+big_hits <- as.data.frame(matrix(nrow=0, ncol=2))
+for(i in 1:nrow(converters)){
+  statline <- converters[i,]
+  game_id <- statline[1]
+  question_hard_conv <- hardest_12[statline[2],4]
+  which_q_was_it <- paste0("q", hardest_12[statline[2],1])
+  conv_id <- as.numeric(gsub("p", "", conversions[statline[1],which_q_was_it]))
+  who_got <- name_extractor(urls_collection[statline[1],])[conv_id]
+  big_hits[i,] <- c(who_got, question_hard_conv)
+}
 
-
-
+View(as.data.frame(table(big_hits$V1)))
 
